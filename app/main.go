@@ -59,7 +59,11 @@ func decodeInteger(bencodedString string) (int, error) {
 		return 0, errors.New("decode error: the combo -0 is a invalid one")
 	}
 	if isNegative {
-		return strconv.Atoi(bencodedString[2 : strLen-1])
+		returnValue, err := strconv.Atoi(bencodedString[2 : strLen-1])
+		if err == nil {
+			return (-1) * returnValue, err
+		}
+		return returnValue, err
 	}
 	return strconv.Atoi(bencodedString[1 : strLen-1])
 
