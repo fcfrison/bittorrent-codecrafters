@@ -30,7 +30,7 @@ func decodeBencode(bencodedString string) (any, error) {
 	var value any
 	var err error
 	for pos < len(bencodeRunes) {
-		value, err = _decodeBencode(bencodeRunes, &pos)
+		value, err = _decodeBencode(&pos, bencodeRunes)
 		if err != nil {
 			return value, err
 		}
@@ -38,7 +38,7 @@ func decodeBencode(bencodedString string) (any, error) {
 	}
 	return value, err
 }
-func _decodeBencode(bencodeRunes []rune, pos *int) (any, error) {
+func _decodeBencode(pos *int, bencodeRunes []rune) (any, error) {
 	switch findOutBencodeType(bencodeRunes[*pos]) {
 	case BencodeString:
 		return decodeString(pos, bencodeRunes)
@@ -46,10 +46,52 @@ func _decodeBencode(bencodeRunes []rune, pos *int) (any, error) {
 		return decodeInteger(pos, bencodeRunes)
 	case BencodeList:
 		return decodeList(pos, bencodeRunes)
+	case BencodeDict:
+		return decodeDictionary(pos, bencodeRunes)
 	default:
 		break
 	}
 	return "", errors.New("decode error: invalid character")
+}
+func decodeDictionary(pos *int, bencodeRunes []rune) (map[string]any, error) {
+	var newDict map[string]any = make(map[string]any)
+	if len(bencodeRunes[*pos:]) < 2 {
+		return newDict, errors.New("decode error: invalid dictionary")
+	}
+	*pos++
+	var previous string
+	for *pos < len(bencodeRunes) {
+		if bencodeRunes[*pos] == 'e' {
+			return newDict, nil
+		}
+		if !(findOutBencodeType(bencodeRunes[*pos]) == BencodeString) {
+			return newDict, errors.New("decode error: the key must be a string")
+		}
+		key, err := decodeString(pos, bencodeRunes)
+		if err != nil {
+			return newDict, err
+		}
+		if previous == "" {
+			previous = key
+		}
+		current := key
+		if previous > current {
+			return newDict, errors.New("decode error:the dictionary keys aren't lexicographically sorted")
+		}
+		*pos++
+		if *pos >= len(bencodeRunes) {
+			return newDict, errors.New("decode error: malformed dict")
+		}
+		value, err := _decodeBencode(pos, bencodeRunes)
+		if err != nil {
+			return newDict, err
+		}
+		newDict[key] = value
+		*pos++
+		previous = current
+	}
+	return newDict, errors.New("decode error: malformed dictionary")
+
 }
 func decodeList(pos *int, bencodeRunes []rune) ([]any, error) {
 	newList := make([]any, 0)
@@ -61,7 +103,7 @@ func decodeList(pos *int, bencodeRunes []rune) ([]any, error) {
 		if bencodeRunes[*pos] == 'e' {
 			return newList, nil
 		}
-		el, err := _decodeBencode(bencodeRunes, pos)
+		el, err := _decodeBencode(pos, bencodeRunes)
 		if err != nil {
 			return newList, err
 		}
