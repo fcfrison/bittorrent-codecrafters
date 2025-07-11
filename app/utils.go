@@ -16,3 +16,13 @@ func PieceHashes(hashes []byte) ([][]byte, error) {
 	}
 	return listOfHashes, nil
 }
+func parseTorrentFile(data []byte) (map[string]any, error) {
+	if findOutBencodeType(rune(data[0])) != BencodeDict {
+		return nil, errors.New("parse error: the .torrent file couldn't be parsed")
+	}
+	parsedInfo, err := decodeBencode(data)
+	if err != nil {
+		return nil, err
+	}
+	return parsedInfo.(map[string]any), nil
+}

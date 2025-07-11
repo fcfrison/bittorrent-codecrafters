@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 )
@@ -78,14 +77,4 @@ func main() {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
-}
-func parseTorrentFile(data []byte) (map[string]any, error) {
-	if findOutBencodeType(rune(data[0])) != BencodeDict {
-		return nil, errors.New("parse error: the .torrent file couldn't be parsed")
-	}
-	parsedInfo, err := decodeBencode(data)
-	if err != nil {
-		return nil, err
-	}
-	return parsedInfo.(map[string]any), nil
 }
