@@ -15,7 +15,7 @@ const (
 	BencodeInvalid
 )
 
-func decodeBencode(bencodedString string) (any, error) {
+func decodeBencode(bencodedString []byte) (any, error) {
 	if len(bencodedString) == 0 {
 		return 0, errors.New("decode error: the string is empty")
 	}
@@ -31,7 +31,7 @@ func decodeBencode(bencodedString string) (any, error) {
 	}
 	return value, err
 }
-func _decodeBencode(pos *int, bencodedString string) (any, error) {
+func _decodeBencode(pos *int, bencodedString []byte) (any, error) {
 	switch findOutBencodeType(rune(bencodedString[*pos])) {
 	case BencodeString:
 		return decodeString(pos, bencodedString)
@@ -46,13 +46,13 @@ func _decodeBencode(pos *int, bencodedString string) (any, error) {
 	}
 	return "", errors.New("decode error: invalid character")
 }
-func decodeDictionary(pos *int, bencodedString string) (map[string]any, error) {
+func decodeDictionary(pos *int, bencodedString []byte) (map[string]any, error) {
 	var newDict map[string]any = make(map[string]any)
 	if len(bencodedString[*pos:]) < 2 {
 		return newDict, errors.New("decode error: invalid dictionary")
 	}
 	*pos++
-	var previous string
+	var previous []byte
 	for *pos < len(bencodedString) {
 		if bencodedString[*pos] == 'e' {
 			return newDict, nil
@@ -64,11 +64,11 @@ func decodeDictionary(pos *int, bencodedString string) (map[string]any, error) {
 		if err != nil {
 			return newDict, err
 		}
-		if previous == "" {
+		if previous == nil {
 			previous = key
 		}
 		current := key
-		if previous > current {
+		if string(previous) > string(current) {
 			return newDict, errors.New("decode error:the dictionary keys aren't lexicographically sorted")
 		}
 		*pos++
@@ -79,14 +79,14 @@ func decodeDictionary(pos *int, bencodedString string) (map[string]any, error) {
 		if err != nil {
 			return newDict, err
 		}
-		newDict[key] = value
+		newDict[string(key)] = value
 		*pos++
 		previous = current
 	}
 	return newDict, errors.New("decode error: malformed dictionary")
 
 }
-func decodeList(pos *int, bencodedString string) ([]any, error) {
+func decodeList(pos *int, bencodedString []byte) ([]any, error) {
 	newList := make([]any, 0)
 	if len(bencodedString[*pos:]) < 2 {
 		return newList, errors.New("decode error: list length must be greater than 2")
@@ -105,9 +105,9 @@ func decodeList(pos *int, bencodedString string) ([]any, error) {
 	}
 	return newList, errors.New("decode error: list malformed")
 }
-func decodeString(pos *int, bencodedString string) (string, error) {
+func decodeString(pos *int, bencodedString []byte) ([]byte, error) {
 	if len(bencodedString) == 0 || len(bencodedString[*pos:]) == 0 {
-		return "", errors.New("decode error: ")
+		return nil, errors.New("decode error: ")
 	}
 	sizeFirstPos := *pos
 	for *pos < len(bencodedString) {
@@ -118,7 +118,7 @@ func decodeString(pos *int, bencodedString string) (string, error) {
 		if *pos == 0 || *pos+1 == len(bencodedString) {
 			break
 		}
-		length, err := strconv.Atoi(bencodedString[sizeFirstPos:*pos])
+		length, err := strconv.Atoi(string(bencodedString[sizeFirstPos:*pos]))
 		*pos++
 		if err != nil || length > len(bencodedString)-(*pos) {
 			break
@@ -128,10 +128,10 @@ func decodeString(pos *int, bencodedString string) (string, error) {
 		*pos = end - 1
 		return bencodedString[start:end], nil
 	}
-	return "", errors.New("decode error: byte string couldn't be parsed")
+	return nil, errors.New("decode error: byte string couldn't be parsed")
 }
 
-func decodeInteger(pos *int, bencodedString string) (int, error) {
+func decodeInteger(pos *int, bencodedString []byte) (int, error) {
 	bencodedStringLength := len(bencodedString)
 	if err := validateMinimumIntegerLength(pos, bencodedString); err != nil {
 		return 0, err
@@ -166,13 +166,13 @@ func decodeInteger(pos *int, bencodedString string) (int, error) {
 	}
 	return intValue, err
 }
-func validateMinimumIntegerLength(pos *int, bencodedString string) error {
+func validateMinimumIntegerLength(pos *int, bencodedString []byte) error {
 	if len(bencodedString) == 0 || len(bencodedString[*pos:]) < 3 {
 		return errors.New("decode error: integer value couldn't be decoded")
 	}
 	return nil
 }
-func isValidNegativeNumber(pos *int, bencodedString string) bool {
+func isValidNegativeNumber(pos *int, bencodedString []byte) bool {
 	remaining := bencodedString[*pos:]
 	if len(remaining) < 3 {
 		return false
