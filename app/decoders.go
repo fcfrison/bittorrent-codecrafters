@@ -183,10 +183,6 @@ func isValidNegativeNumber(pos *int, bencodedString []byte) bool {
 	return true
 }
 
-// Example:
-// - 5:hello -> hello
-// - 10:hello12345 -> hello12345
-
 func findOutBencodeType(char rune) int {
 	if char == 'i' {
 		return BencodeInteger

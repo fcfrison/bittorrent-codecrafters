@@ -8,13 +8,9 @@ import (
 	"os"
 )
 
-// Ensures gofmt doesn't remove the "os" encoding/json import (feel free to remove this!)
 var _ = json.Marshal
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Fprintln(os.Stderr, "Logs from your program will appear here!")
-
 	command := os.Args[1]
 	arg2 := os.Args[2]
 	switch command {
@@ -43,10 +39,19 @@ func main() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		hash := sha1.Sum(bencodedInfo)
+		pieceHashes, err := PieceHashes(info["pieces"].([]byte))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 		fmt.Printf("Tracker URL: %s\n", parsedData["announce"])
 		fmt.Printf("Length: %d\n", info["length"])
-		fmt.Printf("Info Hash: %x\n", hash)
+		fmt.Printf("Info Hash: %x\n", sha1.Sum(bencodedInfo))
+		fmt.Printf("Piece Length: %d\n", info["piece length"])
+		fmt.Println("Piece Hashes:")
+		for _, val := range pieceHashes {
+			fmt.Printf("%x\n", val)
+		}
 	case "encode":
 		decoded, err := decodeBencode([]byte(arg2))
 		if err != nil {
