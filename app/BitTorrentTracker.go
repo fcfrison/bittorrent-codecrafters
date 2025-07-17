@@ -2,8 +2,11 @@ package main
 
 import (
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -17,17 +20,26 @@ type BitTorrentTrackerApi interface {
 type DiscoverPeersParams struct {
 	info_hash  []byte
 	peer_id    []byte
-	port       int
 	uploaded   int
 	downloaded int
 	left       int
 	compact    int
 }
 
+var port int = 6881
+
 func NewBitTorrentTrackerClient() *BitTorrentTrackerClient {
+	localAddress := &net.TCPAddr{
+		IP:   net.ParseIP("0.0.0.0"),
+		Port: port,
+	}
+	dialer := &net.Dialer{
+		LocalAddr: localAddress,
+	}
 	transport := &http.Transport{
 		MaxConnsPerHost:       1,
 		ResponseHeaderTimeout: 10 * time.Second,
+		DialContext:           dialer.DialContext,
 	}
 	client := &http.Client{
 		Timeout:   60 * time.Second,
@@ -46,12 +58,41 @@ func (c *BitTorrentTrackerClient) SetUrl(baseUrl string) error {
 	c.url = parsedUrl
 	return nil
 }
-func (c *BitTorrentTrackerClient) discoverPeers(params *DiscoverPeersParams) (string, error) {
+func (c *BitTorrentTrackerClient) DiscoverPeers(params *DiscoverPeersParams) ([]byte, error) {
 	if params == nil {
-		return "", errors.New("error: the params pointer is null")
+		return nil, errors.New("error: the params pointer is null")
 	}
+	if params.info_hash == nil || params.peer_id == nil {
+		return nil, errors.New("error: info_hash or peer_id is null")
+	}
+	if c.url == nil {
+		return nil, errors.New("error: no url was setted yet")
+	}
+
 	request, err := http.NewRequest("GET", c.url.Host, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
+	q := url.Values{}
+	q.Add("info_hash", string(params.info_hash))
+	q.Add("peer_id", string(params.peer_id))
+	q.Add("port", strconv.Itoa(port))
+	q.Add("uploaded", strconv.Itoa(params.uploaded))
+	q.Add("downloaded", strconv.Itoa(params.downloaded))
+	q.Add("left", strconv.Itoa(params.left))
+	q.Add("compact", strconv.Itoa(params.compact))
+	request.URL.RawQuery = q.Encode()
+	resp, err := c.client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		return nil, errors.New("error: the tracker returned a status code that is outside the range [200,300)")
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
 }
