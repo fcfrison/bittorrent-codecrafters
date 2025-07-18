@@ -17,13 +17,26 @@ type BitTorrentTrackerClient struct {
 type BitTorrentTrackerApi interface {
 	GetPeers()
 }
+
 type DiscoverPeersParams struct {
-	info_hash  []byte
-	peer_id    []byte
+	info_hash  [20]byte
+	peer_id    [20]byte
 	uploaded   int
 	downloaded int
 	left       int
 	compact    int
+}
+
+func NewDiscoverPeersParamsStruct(info_hash [20]byte, peer_id [20]byte,
+	uploaded int, downloaded int, left int, compact int) *DiscoverPeersParams {
+	return &DiscoverPeersParams{
+		info_hash:  info_hash,
+		peer_id:    peer_id,
+		uploaded:   uploaded,
+		downloaded: downloaded,
+		left:       left,
+		compact:    compact,
+	}
 }
 
 var port int = 6881
@@ -62,20 +75,17 @@ func (c *BitTorrentTrackerClient) DiscoverPeers(params *DiscoverPeersParams) ([]
 	if params == nil {
 		return nil, errors.New("error: the params pointer is null")
 	}
-	if params.info_hash == nil || params.peer_id == nil {
-		return nil, errors.New("error: info_hash or peer_id is null")
-	}
 	if c.url == nil {
 		return nil, errors.New("error: no url was setted yet")
 	}
 
-	request, err := http.NewRequest("GET", c.url.Host, nil)
+	request, err := http.NewRequest("GET", "https://"+c.url.Host+c.url.Path, nil)
 	if err != nil {
 		return nil, err
 	}
 	q := url.Values{}
-	q.Add("info_hash", string(params.info_hash))
-	q.Add("peer_id", string(params.peer_id))
+	q.Add("info_hash", string(params.info_hash[:]))
+	q.Add("peer_id", string(params.peer_id[:]))
 	q.Add("port", strconv.Itoa(port))
 	q.Add("uploaded", strconv.Itoa(params.uploaded))
 	q.Add("downloaded", strconv.Itoa(params.downloaded))

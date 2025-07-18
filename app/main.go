@@ -19,7 +19,8 @@ func main() {
 	case "encode":
 		encodeCommand([]byte(arg2))
 	case "peers":
-		peersCommand(arg2)
+		client := NewBitTorrentTrackerClient()
+		peersCommand(arg2, client)
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)

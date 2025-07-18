@@ -68,9 +68,9 @@ func decodeDictionary(pos *int, bencodedString []byte) (map[string]any, error) {
 			previous = key
 		}
 		current := key
-		if string(previous) > string(current) {
-			return newDict, errors.New("decode error:the dictionary keys aren't lexicographically sorted")
-		}
+		//if string(previous) > string(current) {
+		//	return newDict, errors.New("decode error:the dictionary keys aren't lexicographically sorted")
+		//}
 		*pos++
 		if *pos >= len(bencodedString) {
 			return newDict, errors.New("decode error: malformed dict")

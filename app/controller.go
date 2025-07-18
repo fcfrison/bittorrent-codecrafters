@@ -81,7 +81,7 @@ func encodeCommand(input []byte) {
 	}
 	fmt.Println(string(encoded))
 }
-func peersCommand(input string) {
+func peersCommand(input string, client *BitTorrentTrackerClient) {
 	data, err := os.ReadFile(input)
 	if err != nil {
 		fmt.Println("error: file couldn't be open")
@@ -92,21 +92,38 @@ func peersCommand(input string) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-func generateDiscoverPeersParamsStruct(parsedData map[string]any, port int, peer_id [20]byte,
-	uploaded int, downloaded int, left int, compact int) (*DiscoverPeersParams, error) {
+	client.SetUrl(string(parsedData["announce"].([]byte)))
+	var peer_id [20]byte
+	copy(peer_id[:], "12345678901234567890"[:])
 	info := parsedData["info"].(map[string]any)
 	info_hash, err := calculateInfoHash(info)
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	return &DiscoverPeersParams{
-		info_hash:  info_hash,
-		peer_id:    peer_id,
-		uploaded:   uploaded,
-		downloaded: downloaded,
-		left:       left,
-		compact:    compact,
-	}, nil
+	params := NewDiscoverPeersParamsStruct(info_hash, peer_id, 0, 0, info["length"].(int), 1)
+	resp, err := client.DiscoverPeers(params)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	decodedBencode, err := decodeBencode(resp)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	decodedValue := decodedBencode.(map[string]any)
+	if decodedValue["peers"] == nil {
+		fmt.Println("error: no peer was announced by the tracker server")
+		os.Exit(1)
+	}
+	peers, err := parsePeers(decodedValue["peers"].([]byte))
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	for _, val := range peers {
+		fmt.Printf("%s\n", val.StrRepr())
+	}
 
 }
