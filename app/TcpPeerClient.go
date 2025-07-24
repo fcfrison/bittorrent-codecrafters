@@ -3,10 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
-	"fmt"
-	"io"
 	"net"
-	"os"
 	"strconv"
 	"time"
 )
@@ -17,18 +14,16 @@ type ClientConfig struct {
 	RecChanSize   int
 	WriteChanSize int
 }
-type TCPClient interface {
-	Connect() error
-	Disconnect() error
-	Send([]byte) error
-	Receive() ([]byte, error)
+type TcpClient interface {
+	Connect()
+	Send([]byte)
+	Receive()
 }
 type BitTorrentTcpClient struct {
 	config  *ClientConfig
 	conn    *net.Conn
 	readCh  chan *ReceivedData
 	writeCh chan []byte
-	writter *bufio.Writer
 }
 
 func NewClientConfig(urlOrIp string, port int) *ClientConfig {
@@ -57,13 +52,13 @@ func (c *BitTorrentTcpClient) Connect() error {
 	c.conn = &conn
 	c.readCh = make(chan *ReceivedData, c.config.RecChanSize)
 	c.writeCh = make(chan []byte, c.config.WriteChanSize)
-	c.writter = bufio.NewWriter(conn)
 	return nil
 }
 
 type ReceivedData struct {
 	data []byte
 	size int
+	err  error
 }
 
 func (c *BitTorrentTcpClient) Read() {
@@ -71,16 +66,34 @@ func (c *BitTorrentTcpClient) Read() {
 	for {
 		buff := make([]byte, 1024)
 		size, err := reader.Read(buff)
-		if err == io.EOF {
+		recData := &ReceivedData{
+			data: buff,
+			size: size,
+			err:  err}
+		c.readCh <- recData
+		if err != nil {
 			return
 		}
+	}
+}
+func (c *BitTorrentTcpClient) Send() {
+	writter := bufio.NewWriter(*c.conn)
+	for {
+		buff, ok := <-c.writeCh
+		if !ok {
+			return
+		}
+		buffSize := len(buff)
+		for buffSize > 0 {
+			n, err := writter.Write(buff)
+			if err != nil {
+				return
+			}
+			buffSize = buffSize - n
+		}
+		err := writter.Flush()
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			return
 		}
-		if size > 0 {
-			c.readCh <- &ReceivedData{data: buff, size: size}
-		}
-
 	}
 }

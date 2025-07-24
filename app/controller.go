@@ -1,11 +1,12 @@
 package main
 
 import (
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"os"
 )
+
+var peerId string = "12345678901234567890"
 
 func decodeCommand(input []byte) {
 	decoded, err := decodeBencode(input)
@@ -20,13 +21,7 @@ func decodeCommand(input []byte) {
 	}
 	fmt.Println(string(jsonOutput))
 }
-func calculateInfoHash(info map[string]any) ([20]byte, error) {
-	bencodedInfo, err := EncodeDictionary(info)
-	if err != nil {
-		return [20]byte{}, err
-	}
-	return sha1.Sum(bencodedInfo), nil
-}
+
 func infoCommand(input string) {
 	data, err := os.ReadFile(input)
 	if err != nil {
@@ -94,7 +89,7 @@ func peersCommand(input string, client *BitTorrentTrackerClient) {
 	}
 	client.SetUrl(string(parsedData["announce"].([]byte)))
 	var peer_id [20]byte
-	copy(peer_id[:], "12345678901234567890"[:])
+	copy(peer_id[:], peerId[:])
 	info := parsedData["info"].(map[string]any)
 	info_hash, err := calculateInfoHash(info)
 	if err != nil {
@@ -125,5 +120,37 @@ func peersCommand(input string, client *BitTorrentTrackerClient) {
 	for _, val := range peers {
 		fmt.Printf("%s\n", val.StrRepr())
 	}
+
+}
+func fmtHandshakeMsg(infoHash [20]byte, peerId [20]byte) []byte {
+	hndShkReq := make([]byte, 68)
+	hndShkReq[0] = 0x13
+	for i, val := range []byte("BitTorrent protocol") {
+		hndShkReq[i+1] = val
+	}
+	for i := 0; i < 20; i++ {
+		hndShkReq[i+28] = infoHash[i]
+		peerId[i+48] = peerId[i]
+
+	}
+	return hndShkReq
+}
+func parseHandshakeMsg(msg [68]byte, infoHash [20]byte) bool {
+	if msg[0] != 0x13 || string(msg[1:21]) == "BitTorrent protocol" {
+		return false
+	}
+	for _, val := range msg[20:28] {
+		if !(val == 0x00) {
+			return false
+		}
+	}
+	for i, val := range infoHash {
+		if val != msg[28+i] {
+			return false
+		}
+	}
+	return true
+}
+func handshakeCmd() {
 
 }

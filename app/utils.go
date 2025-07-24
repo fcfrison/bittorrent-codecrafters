@@ -1,6 +1,9 @@
 package main
 
-import "errors"
+import (
+	"crypto/sha1"
+	"errors"
+)
 
 func PieceHashes(hashes []byte) ([][]byte, error) {
 	isMultipleOf20 := len(hashes)%20 == 0
@@ -25,4 +28,11 @@ func parseTorrentFile(data []byte) (map[string]any, error) {
 		return nil, err
 	}
 	return parsedInfo.(map[string]any), nil
+}
+func calculateInfoHash(info map[string]any) ([20]byte, error) {
+	bencodedInfo, err := EncodeDictionary(info)
+	if err != nil {
+		return [20]byte{}, err
+	}
+	return sha1.Sum(bencodedInfo), nil
 }
