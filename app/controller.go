@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-var peerId string = "12345678901234567890"
+var myId string = "12345678901234567890"
 
 func decodeCommand(input []byte) {
 	decoded, err := decodeBencode(input)
@@ -89,7 +89,7 @@ func peersCommand(input string, client *BitTorrentTrackerClient) {
 	}
 	client.SetUrl(string(parsedData["announce"].([]byte)))
 	var peer_id [20]byte
-	copy(peer_id[:], peerId[:])
+	copy(peer_id[:], myId[:])
 	info := parsedData["info"].(map[string]any)
 	info_hash, err := calculateInfoHash(info)
 	if err != nil {
@@ -122,35 +122,29 @@ func peersCommand(input string, client *BitTorrentTrackerClient) {
 	}
 
 }
-func fmtHandshakeMsg(infoHash [20]byte, peerId [20]byte) []byte {
-	hndShkReq := make([]byte, 68)
-	hndShkReq[0] = 0x13
-	for i, val := range []byte("BitTorrent protocol") {
-		hndShkReq[i+1] = val
-	}
-	for i := 0; i < 20; i++ {
-		hndShkReq[i+28] = infoHash[i]
-		peerId[i+48] = peerId[i]
 
+func handshakeCommand(input string, tcpClient TcpClient) {
+	data, err := os.ReadFile(input)
+	if err != nil {
+		fmt.Println("error: file couldn't be open")
+		os.Exit(1)
 	}
-	return hndShkReq
-}
-func parseHandshakeMsg(msg [68]byte, infoHash [20]byte) bool {
-	if msg[0] != 0x13 || string(msg[1:21]) == "BitTorrent protocol" {
-		return false
+	parsedData, err := parseTorrentFile(data)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	for _, val := range msg[20:28] {
-		if !(val == 0x00) {
-			return false
-		}
+	tcpClient.Connect()
+	go tcpClient.Receive()
+	go tcpClient.Send()
+	info := parsedData["info"].(map[string]any)
+	info_hash, err := calculateInfoHash(info)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	for i, val := range infoHash {
-		if val != msg[28+i] {
-			return false
-		}
-	}
-	return true
-}
-func handshakeCmd() {
-
+	peerId := new([20]byte)
+	copy(peerId[:], myId)
+	hndShkMsg := fmtHandshakeMsg(&info_hash, peerId)
+	fmt.Println(hndShkMsg)
 }

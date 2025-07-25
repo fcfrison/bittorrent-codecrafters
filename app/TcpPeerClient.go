@@ -15,8 +15,8 @@ type ClientConfig struct {
 	WriteChanSize int
 }
 type TcpClient interface {
-	Connect()
-	Send([]byte)
+	Connect() error
+	Send()
 	Receive()
 }
 type BitTorrentTcpClient struct {
@@ -61,7 +61,7 @@ type ReceivedData struct {
 	err  error
 }
 
-func (c *BitTorrentTcpClient) Read() {
+func (c *BitTorrentTcpClient) Receive() {
 	reader := bufio.NewReader(*c.conn)
 	for {
 		buff := make([]byte, 1024)

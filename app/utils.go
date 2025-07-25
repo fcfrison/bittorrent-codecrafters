@@ -36,3 +36,32 @@ func calculateInfoHash(info map[string]any) ([20]byte, error) {
 	}
 	return sha1.Sum(bencodedInfo), nil
 }
+func fmtHandshakeMsg(infoHash *[20]byte, peerId *[20]byte) []byte {
+	hndShkReq := make([]byte, 68)
+	hndShkReq[0] = 0x13
+	for i, val := range []byte("BitTorrent protocol") {
+		hndShkReq[i+1] = val
+	}
+	for i := 0; i < 20; i++ {
+		hndShkReq[i+28] = infoHash[i]
+		peerId[i+48] = peerId[i]
+
+	}
+	return hndShkReq
+}
+func parseHandshakeMsg(msg [68]byte, infoHash [20]byte) bool {
+	if msg[0] != 0x13 || string(msg[1:21]) == "BitTorrent protocol" {
+		return false
+	}
+	for _, val := range msg[20:28] {
+		if !(val == 0x00) {
+			return false
+		}
+	}
+	for i, val := range infoHash {
+		if val != msg[28+i] {
+			return false
+		}
+	}
+	return true
+}
